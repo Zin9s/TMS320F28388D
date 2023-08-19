@@ -71,6 +71,7 @@ SECTIONS
 {
    codestart           : > BEGIN, ALIGN(8)
    .text               : >> FLASH1 | FLASH2 | FLASH3 | FLASH4, ALIGN(8)
+   .binit              : > FLASH4, ALIGN(8)
    .cinit              : > FLASH4, ALIGN(8)
    .switch             : > FLASH1, ALIGN(8)
    .reset              : > RESET, TYPE = DSECT /* not used, */

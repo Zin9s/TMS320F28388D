@@ -10,10 +10,26 @@
 #include <ti/sysbios/BIOS.h>
 
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Swi.h>
 
 #include <device.h>
 #include <f2838x_examples.h>
 #include <f2838x_device.h>
+
+//
+// Globals
+//
+uint32_t Swi0IntCount = 0;
+uint16_t LEDcount = 0;
+
+//
+// Swi Handler
+//
+extern ti_sysbios_knl_Swi_Handle swi0;
+
+
+void Swi0_ISR(UArg arg0, UArg arg1);
+
 
 /*
  *  ======== taskFxn ========
@@ -31,8 +47,8 @@ void TaskB(void)
 {
     while(1)
     {
-        GPIO_togglePin(DEVICE_GPIO_PIN_LED2);
-        Task_sleep(500); // [ms]
+        Swi_post(swi0);
+        Task_sleep(10); // [ms]
     }
 }
 /*
@@ -56,4 +72,20 @@ Int main()
 
     BIOS_start();    /* does not return */
     return(0);
+}
+
+void Swi0_ISR(UArg arg0, UArg arg1)
+{
+    Swi0IntCount++;
+    LEDcount++;
+
+    //
+    // Toggle LED2 when the count reaches 100
+    //
+    if (LEDcount == 100)
+    {
+        GPIO_togglePin(DEVICE_GPIO_PIN_LED2);
+        LEDcount=0;
+    }
+
 }
