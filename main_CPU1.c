@@ -20,6 +20,8 @@
 // Globals
 //
 uint32_t Swi0IntCount = 0;
+uint32_t TimerCIntCount = 0;
+uint16_t TimerC1msCount = 0;
 uint16_t LEDcount = 0;
 
 //
@@ -47,10 +49,24 @@ void TaskB(void)
 {
     while(1)
     {
-        Swi_post(swi0);
+//        Swi_post(swi0);
         Task_sleep(10); // [ms]
     }
 }
+
+/*
+ *  ======== timerFxn ========
+ */
+void TimerC(void)
+{
+    Swi_post(swi0);
+    TimerCIntCount++;
+    if ((TimerCIntCount % 32) == 0)
+    {
+        TimerC1msCount++;
+    }
+}
+
 /*
  *  ======== main ========
  */
@@ -80,9 +96,9 @@ void Swi0_ISR(UArg arg0, UArg arg1)
     LEDcount++;
 
     //
-    // Toggle LED2 when the count reaches 100
+    // Toggle LED2 when the count reaches 32000
     //
-    if (LEDcount == 100)
+    if (LEDcount == 32000)
     {
         GPIO_togglePin(DEVICE_GPIO_PIN_LED2);
         LEDcount=0;
