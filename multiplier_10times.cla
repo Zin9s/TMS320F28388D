@@ -1,0 +1,85 @@
+//###########################################################################
+//
+// FILE:   multiplier_10times.cla
+//
+// TITLE:  Test code
+//
+//###########################################################################
+
+
+//
+// Included Files
+//
+#include "multiplier_10times.h"
+
+//
+// Defines
+//
+
+//
+// Globals
+//
+// Note that the globals defined in the .cla source are global to the cla source
+// file.  i.e. they may be shared across tasks. All of the data shared between
+// the CLA and the C28x CPU must be defined in the C (or C++) code, and not the
+// CLA code.
+//
+
+__interrupt void Cla1Task1 ( void )
+{
+    //
+    //Local Variables
+    //
+    float result;
+
+    //
+    //Preprocessing
+    //
+    __mdebugstop();
+
+    result = 10 * fVal;
+
+    fResult = result;
+
+    iCLA1Task1Count++;
+}
+
+interrupt void Cla1Task2 ( void )
+{
+    iCLA1Task2Count++;
+
+}
+
+interrupt void Cla1Task3 ( void )
+{
+
+}
+
+interrupt void Cla1Task4 ( void )
+{
+
+}
+
+interrupt void Cla1Task5 ( void )
+{
+
+}
+
+interrupt void Cla1Task6 ( void )
+{
+
+}
+
+interrupt void Cla1Task7 ( void )
+{
+
+}
+
+interrupt void Cla1Task8 ( void )
+{
+
+}
+
+//
+// End of file
+//
