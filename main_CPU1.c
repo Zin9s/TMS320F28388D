@@ -13,10 +13,12 @@
 #include <ti/sysbios/knl/Swi.h>
 #include <ti/sysbios/hal/Hwi.h>
 
-#include "driverlib.h"
 #include "device.h"
-#include "multiplier_10times.h"
+#include "driverlib.h"
+#include "LEDCounter.h"
 
+#include <f2838x_examples.h>
+#include <f2838x_device.h>
 
 //
 // Defines
@@ -27,11 +29,13 @@
 // Globals
 //
 uint32_t TaskACount = 0;
+uint32_t TaskBCount = 0;
 uint32_t TimerACount = 0;
 uint32_t Swi0Count = 0;
 uint16_t pass = 0;
 uint16_t fail = 0;
 extern ti_sysbios_knl_Swi_Handle swi0;
+uint32_t EPwm1IsrCount = 0;
 
 // Refer to C:\ti\c2000\C2000Ware_5_00_00_00\device_support\f2838x\examples\cpu1\cla\cla_ex1_asin.c
 void CLA_initCpu1Cla1(void);
@@ -39,31 +43,23 @@ void CLA_initCpu1Cla1(void);
 // Refer to C:\ti\c2000\C2000Ware_5_00_00_00\device_support\f2838x\examples\cpu1\cla\cla_ex3_background_task.c
 void CLA_configClaMemory(void);
 
+void init_EPwm1(void);
+
 //
 //Task 1 (C) Variables
 // NOTE: Do not initialize the Message RAM variables globally, they will be
 // reset during the message ram initialization phase in the CLA memory
 // configuration routine
 //
-#ifdef __cplusplus
-#pragma DATA_SECTION("CpuToCla1MsgRAM");
-float fVal;
-#pragma DATA_SECTION("Cla1ToCpuMsgRAM");
-float fResult;
-#pragma DATA_SECTION(iCLA1Count,"Cla1ToCpuMsgRAM");
-uint32_t iCLA1Task1Count;
-#else
-#pragma DATA_SECTION(fVal,"CpuToCla1MsgRAM");
-float fVal;
-#pragma DATA_SECTION(fResult,"Cla1ToCpuMsgRAM");
-float fResult;
 #pragma DATA_SECTION(iCLA1Task1Count,"Cla1ToCpuMsgRAM");
-uint32_t iCLA1Task1Count;
-#endif //__cplusplus
+int32_t iCLA1Task1Count;
+#pragma DATA_SECTION(iLedD1Signal,"Cla1ToCpuMsgRAM");
+int32_t iLedD1Signal;
 
 //
 //Task 2 (C) Variables
 //
+int32_t iLedD2Signal = 0;
 
 //
 //Task 3 (C) Variables
@@ -88,27 +84,58 @@ uint32_t iCLA1Task1Count;
 //
 //Task 8 (C) Variables
 //
+#pragma DATA_SECTION(iCLA1Task8Count,"Cla1ToCpuMsgRAM");
+int32_t iCLA1Task8Count;
 
 
 /*
  *  ======== Swi Fxn ========
  */
-void CLAtest_ISR(void)
+void Swi0_ISR(void)
 {
     Swi0Count++;
-    CLA_forceTasks(CLA1_BASE, CLA_TASKFLAG_1);
+    if ((Swi0Count % 500) == 0){
+        if(iLedD2Signal == 0)   iLedD2Signal = 1;
+        else                    iLedD2Signal = 0;
+    }
+}
+
+
+/*
+ *  ======== hwiFxn ========
+ */
+void EPwm1_ISR(UArg arg0)
+{
+    EPwm1IsrCount++;
+    CLA_forceTasks(CLA1_BASE,CLA_TASKFLAG_1);
+
+    //
+    // Clear INT flag for this timer
+    //
+    EPwm1Regs.ETCLR.bit.INT = 1;    // Event Trigger Clear Register
 }
 
 /*
  *  ======== taskFxn ========
  */
-Void TaskA(UArg a0, UArg a1)
+void TaskA(UArg a0, UArg a1)
 {
     while(1)
     {
         TaskACount++;
+        GPIO_writePin(DEVICE_GPIO_PIN_LED1,iLedD1Signal);
+        Task_sleep(1);
+    }
+}
+
+void TaskB(UArg a0, UArg a1)
+{
+    while(1)
+    {
+        TaskBCount++;
         Swi_post(swi0);
-        Task_sleep(100);
+        GPIO_writePin(DEVICE_GPIO_PIN_LED2, iLedD2Signal);
+        Task_sleep(1);
     }
 }
 
@@ -117,10 +144,11 @@ void TimerA(void)
     TimerACount++;
 }
 
+
 /*
  *  ======== main ========
  */
-Int main()
+int main()
 { 
     //
     // Initialize device clock and peripherals
@@ -128,12 +156,27 @@ Int main()
     Device_init();
 
     //
+    // Initialize GPIO and configure the GPIO pin as a push-pull output
+    //
+    Device_initGPIO();
+    GPIO_setPadConfig(DEVICE_GPIO_PIN_LED1, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(DEVICE_GPIO_PIN_LED1, GPIO_DIR_MODE_OUT);
+    GPIO_setPadConfig(DEVICE_GPIO_PIN_LED2, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(DEVICE_GPIO_PIN_LED2, GPIO_DIR_MODE_OUT);
+
+
+    //
+    // Initialize EPwm1
+    //
+    init_EPwm1();
+
+    //
     // Initialize cla memory
     //
     CLA_configClaMemory();
     CLA_initCpu1Cla1();
 
-    CLA_forceTasks(CLA1_BASE, CLA_TASKFLAG_1);
+    CLA_forceTasks(CLA1_BASE, CLA_TASKFLAG_8);
 
     BIOS_start();    /* does not return */
     return(0);
@@ -177,6 +220,7 @@ void CLA_initCpu1Cla1(void)
     //
 #pragma diag_suppress=770
     CLA_mapTaskVector(CLA1_BASE,CLA_MVECT_1,(uint16_t)&Cla1Task1);
+    CLA_mapTaskVector(CLA1_BASE,CLA_MVECT_8,(uint16_t)&Cla1Task8);
 #pragma diag_warning=770
 
     //
@@ -250,4 +294,46 @@ void CLA_initCpu1Cla1(void)
     MemCfg_setGSRAMControllerSel(MEMCFG_SECT_GS15, MEMCFG_GSRAMCONTROLLER_CPU1);
 
     EDIS;
+}
+
+/*
+ *  ======== initFxn ========
+ */
+#define TBCLK 200000000
+#define PWMFREQ 32000
+uint32_t EPWM1_TIMER_TBPRD = 0;
+
+void init_EPwm1(void)
+{
+    EALLOW;     // It is needed to write to EALLOW protected registers.
+
+    //
+    // Setup TBCLK
+    //
+    EPWM1_TIMER_TBPRD = TBCLK/PWMFREQ/2;        // 3125 = 200MHz/32kHz/2
+    EPwm1Regs.TBPRD = EPWM1_TIMER_TBPRD;       // Set timer period 3125 TBCLKs
+    EPwm1Regs.TBPHS.bit.TBPHS = 0x0000;        // Phase is 0
+    EPwm1Regs.TBCTR = 0x0000;                  // Clear counter
+
+    //
+    // Setup counter mode
+    //
+    EPwm1Regs.TBCTL.bit.CTRMODE = TB_COUNT_UPDOWN; // Count up and down
+    EPwm1Regs.TBCTL.bit.PHSEN = TB_DISABLE;        // Disable phase loading
+
+    //
+    // Configure EPWM to run at SYSCLK
+    //
+    ClkCfgRegs.PERCLKDIVSEL.bit.EPWMCLKDIV = SYSCTL_EPWMCLK_DIV_1;    // 200MHz
+    EPwm1Regs.TBCTL.bit.HSPCLKDIV = TB_DIV1;       // Clock ratio to SYSCLKOUT
+    EPwm1Regs.TBCTL.bit.CLKDIV = TB_DIV1;
+
+    //
+    // Interrupt where we will change the Compare Values
+    //
+    EPwm1Regs.ETSEL.bit.INTSEL = ET_CTR_ZERO;     // Select INT on Zero event
+    EPwm1Regs.ETSEL.bit.INTEN = 1;                // Enable INT
+    EPwm1Regs.ETPS.bit.INTPRD = ET_1ST;           // Generate INT on 1 event
+
+    EDIS;       // It is needed to disable write to EALLOW protected registers.
 }

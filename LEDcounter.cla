@@ -1,0 +1,80 @@
+//###########################################################################
+//
+// FILE:   ClaLedCounter.cla
+//
+// TITLE:  Test code
+//
+//###########################################################################
+
+
+//
+// Included Files
+//
+#include <LEDCounter.h>
+
+//
+// Defines
+//
+
+//
+// Globals
+//
+// Note that the globals defined in the .cla source are global to the cla source
+// file.  i.e. they may be shared across tasks. All of the data shared between
+// the CLA and the C28x CPU must be defined in the C (or C++) code, and not the
+// CLA code.
+//
+
+__interrupt void Cla1Task1 ( void )
+{
+    iCLA1Task1Count++;
+
+    if ((iCLA1Task1Count % 3200) == 0)  // every 100ms
+    {
+        if(iLedD1Signal == 0)   iLedD1Signal = 1;
+        else                    iLedD1Signal = 0;
+
+    }
+    __mdebugstop();
+
+}
+
+interrupt void Cla1Task2 ( void )
+{
+
+}
+
+interrupt void Cla1Task3 ( void )
+{
+
+}
+
+interrupt void Cla1Task4 ( void )
+{
+
+}
+
+interrupt void Cla1Task5 ( void )
+{
+
+}
+
+interrupt void Cla1Task6 ( void )
+{
+
+}
+
+interrupt void Cla1Task7 ( void )
+{
+
+}
+
+interrupt void Cla1Task8 ( void )
+{
+    iCLA1Task8Count++;
+    iCLA1Task1Count = 1600;
+}
+
+//
+// End of file
+//
